@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FortunaForge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body { background: var(--bg); color: var(--text); transition: background 0.5s, color 0.5s; }
+  :root {
+    --bg: #0a0a0f; --card-bg: #151520; --text: #e0e0e0; --accent: #ffd700;
+    --border: #2a2a35; --success: #00ff88; --danger: #ff4444; --info: #00bfff;
+    --muted: #888; --shadow: rgba(0,0,0,0.5);
+  }
+  .theme-classic { --bg: #0a0a0f; --card-bg: #151520; --accent: #ffd700; --text: #e0e0e0; --border: #2a2a35; }
+  .theme-golden { --bg: #0f0a00; --card-bg: #1f1805; --accent: #ffaa00; --text: #ffecb3; --border: #3a2a10; }
+  .theme-cyber { --bg: #000510; --card-bg: #001020; --accent: #00ffff; --text: #a0fff0; --border: #003040; }
+  .theme-void { --bg: #050005; --card-bg: #100010; --accent: #aa00ff; --text: #e0c0ff; --border: #2a002a; }
+  .theme-cosmic { --bg: #0a0015; --card-bg: #150025; --accent: #ff00ff; --text: #f0c0ff; --border: #300040; }
+  .theme-celestial { --bg: #0a0a15; --card-bg: #151525; --accent: #ffffff; --text: #f0f0ff; --border: #303040; }
+  #app { display: flex; height: 100vh; width: 100vw; position: relative; }
+  #sidebar { width: 220px; background: var(--card-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px; z-index: 50; }
+  #sidebar h1 { font-size: 1.4rem; color: var(--accent); text-align: center; margin-bottom: 20px; cursor: pointer; }
+  #sidebar button { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 12px; margin-bottom: 8px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+  #sidebar button:hover, #sidebar button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  #content { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 80px; position: relative; z-index: 10; }
+  #bottom-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 5px; z-index: 50; justify-content: space-around; }
+  #bottom-bar button { background: transparent; border: none; color: var(--text); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px; cursor: pointer; flex: 1; }
+  #bottom-bar button.active { color: var(--accent); }
+  #bottom-bar button .icon { font-size: 1.3rem; }
+  @media (max-width: 768px) { #sidebar { display: none; } #bottom-bar { display: flex; } #content { padding: 15px; padding-bottom: 80px; } }
+  @media (min-width: 769px) { #sidebar { display: flex; } #bottom-bar { display: none; } }
+  #resource-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; justify-content: center; }
+  .res-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; min-width: 100px; justify-content: center; }
+  .res-box .label { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; }
+  .res-box .value { color: var(--accent); font-weight: bold; font-size: 1rem; }
+  .res-box.gems .value { color: var(--success); }
+  .res-box.dust .value { color: var(--info); }
+  .res-box.relics .value { color: #cd7f32; }
+  .res-box.artifacts .value { color: #b9f2ff; }
+  .res-box.essence .value { color: #ff00ff; }
+  .screen { display: none; animation: fadeIn 0.3s; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  #forge-area { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 10px; }
+  #active-card-wrapper { position: relative; width: 280px; height: 380px; perspective: 1000px; }
+  #active-card { width: 100%; height: 100%; border-radius: 16px; position: relative; cursor: pointer; transform-style: preserve-3d; transition: transform 0.3s; box-shadow: 0 10px 30px var(--shadow); display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid transparent; overflow: hidden; }
+  #active-card:hover { transform: scale(1.02); }
+  #active-card.revealing { animation: cardReveal 0.6s ease-out; }
+  #active-card.crit { animation: cardReveal 0.6s ease-out, cardGlow 0.6s ease-out; }
+  @keyframes cardReveal { 0% { transform: rotateY(0deg) scale(0.9); } 25% { transform: rotateY(90deg) scale(1.1); } 50% { transform: rotateY(180deg) scale(1.1); filter: brightness(1.5); } 75% { transform: rotateY(270deg) scale(1.05); } 100% { transform: rotateY(360deg) scale(1); } }
+  @keyframes cardGlow { 0% { box-shadow: 0 0 20px var(--accent); } 100% { box-shadow: 0 10px 30px var(--shadow); } }
+  .card-tier-0 { background: linear-gradient(135deg, #f5f5f5, #d0d0d0); color: #333; border-color: #bbb; }
+  .card-tier-1 { background: linear-gradient(135deg, #cd7f32, #8b4513); color: #fff; border-color: #a0522d; }
+  .card-tier-2 { background: linear-gradient(135deg, #e0e0e0, #a0a0a0, #e0e0e0); color: #333; border-color: #c0c0c0; }
+  .card-tier-3 { background: linear-gradient(135deg, #ffd700, #b8860b, #ffd700); color: #332200; border-color: #daa520; }
+  .card-tier-4 { background: linear-gradient(135deg, #e5e4e2, #708090, #e5e4e2); color: #fff; border-color: #a0b0c0; }
+  .card-tier-5 { background: linear-gradient(135deg, #b9f2ff, #00bfff, #ffffff); color: #003344; border-color: #80e0ff; }
+  .card-tier-6 { background: linear-gradient(135deg, #1a0b2e, #4a148c, #9d00ff); color: #fff; border-color: #9d00ff; }
+  .card-tier-7 { background: linear-gradient(135deg, #fffacd, #ffd700, #ffffff); color: #332200; border-color: #fffacd; }
+  .card-tier-8 { background: linear-gradient(135deg, #000000, #1a1a1a, #000000); color: #fff; border-color: #ff00ff; animation: infiniteShift 3s infinite linear; }
+  @keyframes infiniteShift { 0% { border-color: #ff0000; } 25% { border-color: #00ff00; } 50% { border-color: #0000ff; } 75% { border-color: #ff00ff; } 100% { border-color: #ff0000; } }
+  .card-art { font-size: 4rem; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+  .card-name { font-size: 1.2rem; font-weight: bold; text-align: center; padding: 0 10px; }
+  .card-stars { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; opacity: 0.3; background-image: radial-gradient(white, transparent 2px); background-size: 30px 30px; }
+  .card-tier-6 .card-stars { animation: sparkleMove 5s linear infinite; }
+  @keyframes sparkleMove { from { background-position: 0 0; } to { background-position: 30px 30px; } }
+  #combo-bar { width: 280px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: -10px; }
+  #combo-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  #combo-text { font-size: 0.8rem; color: var(--accent); margin-top: 4px; height: 1.2em; }
+  .forge-btn { background: var(--accent); color: #000; border: none; padding: 14px 40px; font-size: 1.1rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(255,215,0,0.3); }
+  .forge-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,215,0,0.4); }
+  .forge-btn:active { transform: translateY(0); }
+  .forge-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; }
+  .toggle-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .toggle-btn.active { background: var(--success); color: #000; border-color: var(--success); }
+  .event-banner { background: linear-gradient(90deg, transparent, var(--accent), transparent); color: #000; padding: 8px; text-align: center; font-weight: bold; font-size: 0.9rem; margin-bottom: 10px; border-radius: 4px; display: none; }
+  .event-banner.active { display: block; animation: eventPulse 2s infinite; }
+  @keyframes eventPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .next-unlock { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
+  .progress-bar { width: 200px; height: 4px; background: var(--border); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.3s; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin-top: 15px; }
+  .card-select { border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: transform 0.2s; border: 2px solid var(--border); position: relative; min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .card-select:hover { transform: translateY(-5px); }
+  .card-select.locked { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+  .card-select.selected { border-color: var(--accent); box-shadow: 0 0 15px rgba(255,215,0,0.2); }
+  .card-select .tier-art { font-size: 2.5rem; margin-bottom: 8px; }
+  .card-select .tier-name { font-size: 0.85rem; font-weight: bold; }
+  .card-select .tier-req { font-size: 0.7rem; color: var(--muted); margin-top: 5px; }
+  #perk-tree { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-top: 15px; }
+  @media (max-width: 768px) { #perk-tree { grid-template-columns: 1fr; } }
+  .perk-branch { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .perk-branch h3 { text-align: center; margin-bottom: 12px; font-size: 1rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .perk-item { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 0.8rem; transition: all 0.2s; }
+  .perk-item:hover { border-color: var(--accent); }
+  .perk-item.maxed { border-color: var(--success); opacity: 0.8; }
+  .perk-item .perk-name { font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .perk-item .perk-desc { color: var(--muted); font-size: 0.75rem; margin-bottom: 6px; }
+  .perk-item .perk-cost { display: flex; justify-content: space-between; align-items: center; }
+  .perk-item button { background: var(--accent); color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+  .perk-item button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .perk-pp { color: var(--info); font-weight: bold; }
+  .perk-essence { color: #ff00ff; font-weight: bold; }
+  .destiny-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; max-width: 500px; margin: 20px auto; }
+  .destiny-box h2 { color: var(--accent); margin-bottom: 10px; }
+  .destiny-box .big-num { font-size: 2rem; font-weight: bold; color: #ff00ff; margin: 10px 0; }
+  .destiny-box .warning { color: var(--danger); font-size: 0.85rem; margin: 15px 0; }
+  .destiny-btn { background: linear-gradient(90deg, #ff00ff, #aa00ff); color: #fff; border: none; padding: 14px 40px; font-size: 1.1rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: transform 0.2s; }
+  .destiny-btn:hover { transform: scale(1.05); }
+  .destiny-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 15px; }
+  .stat-box { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-box .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .stat-box .stat-value { font-size: 1.1rem; font-weight: bold; color: var(--accent); }
+  .settings-group { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+  .settings-group h3 { margin-bottom: 12px; font-size: 1rem; color: var(--accent); }
+  .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .setting-row label { font-size: 0.9rem; }
+  .setting-row input[type="range"] { width: 120px; }
+  .setting-row select { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 5px; border-radius: 4px; }
+  .setting-row textarea { width: 100%; min-height: 80px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 0.8rem; }
+  .danger-btn { background: var(--danger); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  .action-btn { background: var(--info); color: #000; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+  #ach-popup { position: fixed; top: 20px; right: 20px; background: var(--card-bg); border: 1px solid var(--accent); border-radius: 10px; padding: 15px; max-width: 250px; z-index: 200; transform: translateX(120%); transition: transform 0.4s; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+  #ach-popup.show { transform: translateX(0); }
+  #ach-popup h4 { color: var(--accent); margin-bottom: 5px; }
+  #ach-popup p { font-size: 0.8rem; color: var(--muted); }
+  #particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+  .floating-text { position: fixed; pointer-events: none; font-weight: bold; font-size: 1.2rem; z-index: 150; animation: floatUp 1s ease-out forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+  @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-60px) scale(1.2); opacity: 0; } }
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--card-bg); color: var(--text); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--accent); opacity: 0; transition: all 0.3s; z-index: 200; font-size: 0.9rem; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #start-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  #start-overlay h1 { font-size: 3rem; color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 20px rgba(255,215,0,0.3); }
+  #start-overlay p { color: var(--muted); margin-bottom: 30px; font-size: 1.1rem; }
+  #start-overlay button { background: var(--accent); color: #000; border: none; padding: 16px 50px; font-size: 1.2rem; font-weight: bold; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
+  #start-overlay button:hover { transform: scale(1.05); }
+  @keyframes shake { 0% { transform: translate(1px,1px) rotate(0deg); } 10% { transform: translate(-1px,-2px) rotate(-1deg); } 20% { transform: translate(-3px,0px) rotate(1deg); } 30% { transform: translate(3px,2px) rotate(0deg); } 40% { transform: translate(1px,-1px) rotate(1deg); } 50% { transform: translate(-1px,2px) rotate(-1deg); } 60% { transform: translate(-3px,1px) rotate(0deg); } 70% { transform: translate(3px,1px) rotate(-1deg); } 80% { transform: translate(-1px,-1px) rotate(1deg); } 90% { transform: translate(1px,2px) rotate(0deg); } 100% { transform: translate(1px,-2px) rotate(-1deg); } }
+  .shake { animation: shake 0.5s; }
+  .section-title { font-size: 1.3rem; color: var(--accent); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+</head>
+<body class="theme-classic">
+<div id="app">
+  <aside id="sidebar">
+    <h1 onclick="titleClick()">FortunaForge</h1>
+    <button onclick="switchScreen('forge')" id="nav-forge" class="active">⚒️ Forge</button>
+    <button onclick="switchScreen('cards')" id="nav-cards">🃏 Cards</button>
+    <button onclick="switchScreen('perks')" id="nav-perks">🌟 Perks</button>
+    <button onclick="switchScreen('destiny')" id="nav-destiny">🔮 Destiny</button>
+    <button onclick="switchScreen('stats')" id="nav-stats">📊 Stats</button>
+    <button onclick="switchScreen('settings')" id="nav-settings">⚙️ Settings</button>
+  </aside>
+  <main id="content">
+    <div id="resource-bar">
+      <div class="res-box"><span class="label">Coins</span><span class="value" id="res-coins">0</span></div>
+      <div class="res-box gems"><span class="label">Gems</span><span class="value" id="res-gems">0</span></div>
+      <div class="res-box dust"><span class="label">Dust</span><span class="value" id="res-dust">0</span></div>
+      <div class="res-box relics"><span class="label">Relics</span><span class="value" id="res-relics">0</span></div>
+      <div class="res-box artifacts"><span class="label">Artifacts</span><span class="value" id="res-artifacts">0</span></div>
+      <div class="res-box essence"><span class="label">Essence</span><span class="value" id="res-essence">0</span></div>
+      <div class="res-box"><span class="label">Perk Pts</span><span class="value" id="res-pp">0</span></div>
+    </div>
+    <div id="event-banner" class="event-banner"></div>
+    <section id="screen-forge" class="screen active">
+      <div id="forge-area">
+        <div id="active-card-wrapper">
+          <div id="active-card" class="card-tier-0" onclick="revealCard(true)">
+            <div class="card-stars"></div>
+            <div class="card-art" id="card-art">🧻</div>
+            <div class="card-name" id="card-name">Paper Fortune</div>
+          </div>
+        </div>
+        <div id="combo-bar"><div id="combo-fill"></div></div>
+        <div id="combo-text"></div>
+        <button class="forge-btn" id="reveal-btn" onclick="revealCard(true)">REVEAL FORTUNE</button>
+        <button class="toggle-btn" id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
+        <div class="next-unlock" id="next-unlock"></div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </section>
+    <section id="screen-cards" class="screen">
+      <h2 class="section-title">Fortune Cards</h2>
+      <div class="cards-grid" id="cards-grid"></div>
+    </section>
+    <section id="screen-perks" class="screen">
+      <h2 class="section-title">Perk Tree</h2>
+      <div id="perk-tree"></div>
+    </section>
+    <section id="screen-destiny" class="screen">
+      <h2 class="section-title">Destiny Ascension</h2>
+      <div class="destiny-box">
+        <h2>Current Run</h2>
+        <div style="margin: 10px 0; font-size: 0.9rem; color: var(--muted);">
+          <div>Highest Tier: <span id="dest-tier" style="color:var(--accent)">Paper</span></div>
+          <div>Total Reveals: <span id="dest-reveals">0</span></div>
+          <div>Coins Earned: <span id="dest-coins">0</span></div>
+        </div>
+        <div style="margin: 20px 0; border-top: 1px solid var(--border); padding-top: 15px;">
+          <div style="font-size: 0.9rem; color: var(--muted);">Potential Essence Gain</div>
+          <div class="big-num" id="dest-essence">0</div>
+        </div>
+        <div class="warning">⚠️ Ascending will reset your Coins, Gems, Dust, Relics, Artifacts, Card Unlocks, and Combo. You keep Essence, Perk Points, Perks, Achievements, and Themes.</div>
+        <button class="destiny-btn" id="ascend-btn" onclick="ascend()" disabled>ASCEND</button>
+      </div>
+    </section>
+    <section id="screen-stats" class="screen">
+      <h2 class="section-title">Statistics</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+    </section>
+    <section id="screen-settings" class="screen">
+      <h2 class="section-title">Settings</h2>
+      <div class="settings-group">
+        <h3>Audio</h3>
+        <div class="setting-row"><label>Music</label><input type="checkbox" id="set-music" checked onchange="updateSettings()"></div>
+        <div class="setting-row"><label>Sound FX</label><input type="checkbox" id="set-sound" checked onchange="updateSettings()"></div>
+        <div class="setting-row"><label>Volume</label><input type="range" id="set-vol" min="0" max="1" step="0.05" value="0.5" onchange="updateSettings()"></div>
+      </div>
+      <div class="settings-group">
+        <h3>Visual</h3>
+        <div class="setting-row"><label>Theme</label><select id="set-theme" onchange="updateSettings()"></select></div>
+      </div>
+      <div class="settings-group">
+        <h3>Save Data</h3>
+        <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+          <textarea id="export-area" readonly placeholder="Export data will appear here..."></textarea>
+          <div><button class="action-btn" onclick="exportSave()">Export</button><button class="action-btn" onclick="copySave()">Copy</button></div>
+        </div>
+        <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:10px; margin-top:10px;">
+          <textarea id="import-area" placeholder="Paste save data here..."></textarea>
+          <button class="action-btn" onclick="importSave()">Import</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Danger Zone</h3>
+        <button class="danger-btn" onclick="resetSave()">RESET ALL PROGRESS</button>
+      </div>
+    </section>
+  </main>
+  <nav id="bottom-bar">
+    <button onclick="switchScreen('forge')" id="mob-forge" class="active"><span class="icon">⚒️</span><span>Forge</span></button>
+    <button onclick="switchScreen('cards')" id="mob-cards"><span class="icon">🃏</span><span>Cards</span></button>
+    <button onclick="switchScreen('perks')" id="mob-perks"><span class="icon">🌟</span><span>Perks</span></button>
+    <button onclick="switchScreen('destiny')" id="mob-destiny"><span class="icon">🔮</span><span>Destiny</span></button>
+    <button onclick="switchScreen('stats')" id="mob-stats"><span class="icon">📊</span><span>Stats</span></button>
+    <button onclick="switchScreen('settings')" id="mob-settings"><span class="icon">⚙️</span><span>Settings</span></button>
+  </nav>
+  <canvas id="particles"></canvas>
+  <div id="toast" class="toast"></div>
+</div>
+<div id="start-overlay">
+  <h1>FortunaForge</h1>
+  <p>Forge your destiny. Reveal your fortune. Ascend beyond limits.</p>
+  <button onclick="startGame()">Enter the Forge</button>
+</div>
+<script>
+/* ================= DATA ================= */
+const TIERS = [
+  { name: 'Paper Fortune', art: '🧻', baseCoins: 1, gemChance: 0, dustChance: 0, relicChance: 0, artifactChance: 0, maxGems: 0, maxDust: 0 },
+  { name: 'Bronze Fortune', art: '🥉', baseCoins: 5, gemChance: 0.01, dustChance: 0, relicChance: 0, artifactChance: 0, maxGems: 1, maxDust: 0 },
+  { name: 'Silver Fortune', art: '🥈', baseCoins: 25, gemChance: 0.02, dustChance: 0.01, relicChance: 0, artifactChance: 0, maxGems: 2, maxDust: 1 },
+  { name: 'Gold Fortune', art: '🥇', baseCoins: 100, gemChance: 0.03, dustChance: 0.02, relicChance: 0.005, artifactChance: 0, maxGems: 3, maxDust: 2 },
+  { name: 'Platinum Fortune', art: '💿', baseCoins: 500, gemChance: 0.05, dustChance: 0.03, relicChance: 0.01, artifactChance: 0.001, maxGems: 4, maxDust: 3 },
+  { name: 'Diamond Fortune', art: '💎', baseCoins: 2500, gemChance: 0.08, dustChance: 0.05, relicChance: 0.02, artifactChance: 0.005, maxGems: 5, maxDust: 5 },
+  { name: 'Cosmic Fortune', art: '🌌', baseCoins: 10000, gemChance: 0.1, dustChance: 0.08, relicChance: 0.05, artifactChance: 0.01, maxGems: 7, maxDust: 8 },
+  { name: 'Celestial Fortune', art: '👑', baseCoins: 50000, gemChance: 0.15, dustChance: 0.1, relicChance: 0.08, artifactChance: 0.02, maxGems: 10, maxDust: 12 },
+  { name: 'Infinite Fortune', art: '♾️', baseCoins: 250000, gemChance: 0.2, dustChance: 0.15, relicChance: 0.1, artifactChance: 0.05, maxGems: 15, maxDust: 20 }
+];
+const TIER_REQS = [0, 10, 50, 200, 1000, 5000, 25000, 100000, 500000];
+const PERKS = [
+  { id: 'l1', branch: 'luck', name: 'Lucky Charm', max: 5, cost: l => l + 1, desc: l => '+' + (10 * l) + '% rare coin rewards', currency: 'pp' },
+  { id: 'l2', branch: 'luck', name: 'Critical Eye', max: 5, cost: l => l + 1, desc: l => '+' + (5 * l) + '% crit chance', currency: 'pp' },
+  { id: 'l3', branch: 'luck', name: 'Treasure Hunter', max: 3, cost: l => (l + 1) * 2, desc: l => '+' + (2 * l) + '% gem find chance', currency: 'pp' },
+  { id: 'l4', branch: 'luck', name: 'Divine Favor', max: 3, cost: l => (l + 1) * 3, desc: l => '+' + l + '% dust find chance', currency: 'pp' },
+  { id: 'l5', branch: 'luck', name: 'Artifact Sense', max: 3, cost: l => (l + 1) * 4, desc: l => '+' + l + '% relic find chance', currency: 'pp' },
+  { id: 'l6', branch: 'luck', name: 'Mythic Vision', max: 3, cost: l => (l + 1) * 5, desc: l => '+' + Math.round(l * 0.5 * 100) + '% artifact find chance', currency: 'pp' },
+  { id: 'l7', branch: 'luck', name: 'Cosmic Alignment', max: 3, cost: l => (l + 1) * 6, desc: l => '+' + (5 * l) + '% event duration', currency: 'pp' },
+  { id: 'l8', branch: 'luck', name: "Fortune's Grace", max: 5, cost: l => (l + 1) * 2, desc: l => '+' + (2 * l) + '% all luck perks', currency: 'pp' },
+  { id: 'l9', branch: 'luck', name: 'Serendipity', max: 3, cost: l => (l + 1) * 5, desc: l => '+' + l + ' max gems per reveal', currency: 'pp' },
+  { id: 'l10', branch: 'luck', name: 'Luck of the Forge', max: 5, cost: l => (l + 1) * 3, desc: l => '+' + (10 * l) + '% crit damage', currency: 'pp' },
+  { id: 's1', branch: 'speed', name: 'Quick Hands', max: 5, cost: l => l + 1, desc: l => '-' + (Math.round(0.2 * l * 10) / 10) + 's auto reveal interval', currency: 'pp' },
+  { id: 's2', branch: 'speed', name: 'Auto Mechanism', max: 5, cost: l => l + 1, desc: l => '+' + (5 * l) + '% auto reveal efficiency', currency: 'pp' },
+  { id: 's3', branch: 'speed', name: 'Haste', max: 3, cost: l => (l + 1) * 2, desc: l => '+' + (5 * l) + '% animation speed', currency: 'pp' },
+  { id: 's4', branch: 'speed', name: 'Time Warp', max: 3, cost: l => (l + 1) * 3, desc: l => '+' + (2 * l) + '% passive income', currency: 'pp' },
+  { id: 's5', branch: 'speed', name: 'Lightning Reveal', max: 3, cost: l => (l + 1) * 4, desc: l => '+' + l + ' bonus reveals per click', currency: 'pp' },
+  { id: 's6', branch: 'speed', name: 'Momentum', max: 5, cost: l => (l + 1) * 2, desc: l => '+' + (2 * l) + '% combo duration', currency: 'pp' },
+  { id: 's7', branch: 'speed', name: 'Flow State', max: 3, cost: l => (l + 1) * 5, desc: l => '+' + (3 * l) + '% max auto speed cap', currency: 'pp' },
+  { id: 's8', branch: 'speed', name: 'Rapid Fire', max: 3, cost: l => (l + 1) * 6, desc: l => '+' + l + ' chain reveals on crit', currency: 'pp' },
+  { id: 's9', branch: 'speed', name: 'Instinct', max: 3, cost: l => (l + 1) * 4, desc: l => '+' + (5 * l) + '% event trigger chance', currency: 'pp' },
+  { id: 's10', branch: 'speed', name: 'Speed of Light', max: 3, cost: l => (l + 1) * 8, desc: l => 'Auto reveal min -' + Math.round(0.05 * l * 100) + 'ms', currency: 'pp' },
+  { id: 'w1', branch: 'wealth', name: 'Coin Magnifier', max: 5, cost: l => l + 1, desc: l => '+' + (10 * l) + '% coin rewards', currency: 'pp' },
+  { id: 'w2', branch: 'wealth', name: 'Gemologist', max: 3, cost: l => (l + 1) * 2, desc: l => '+' + (2 * l) + ' gems per find', currency: 'pp' },
+  { id: 'w3', branch: 'wealth', name: 'Dust Collector', max: 3, cost: l => (l + 1) * 3, desc: l => '+' + l + ' dust per find', currency: 'pp' },
+  { id: 'w4', branch: 'wealth', name: 'Relic Trader', max: 3, cost: l => (l + 1) * 4, desc: l => 'Relics worth +' + (10 * l) + '% coins', currency: 'pp' },
+  { id: 'w5', branch: 'wealth', name: 'Golden Touch', max: 5, cost: l => (l + 1) * 2, desc: l => '+' + (5 * l) + '% all wealth perks', currency: 'pp' },
+  { id: 'w6', branch: 'wealth', name: 'Midas Whisper', max: 3, cost: l => (l + 1) * 5, desc: l => '+' + l + '% chance for double coins', currency: 'pp' },
+  { id: 'w7', branch: 'wealth', name: 'Wealth Accumulation', max: 5, cost: l => (l + 1) * 3, desc: l => '+' + (Math.round(0.5 * l * 10) / 10) + ' coins/sec passive', currency: 'pp' },
+  { id: 'w8', branch: 'wealth', name: 'Bounty', max: 3, cost: l => (l + 1) * 6, desc: l => '+' + (10 * l) + '% event coin rewards', currency: 'pp' },
+  { id: 'w9', branch: 'wealth', name: 'Rich Vein', max: 3, cost: l => (l + 1) * 7, desc: l => '+' + l + ' virtual tier to coin base', currency: 'pp' },
+  { id: 'w10', branch: 'wealth', name: 'Prosperity', max: 5, cost: l => (l + 1) * 4, desc: l => '+' + (2 * l) + '% essence gain', currency: 'pp' },
+  { id: 'd1', branch: 'discovery', name: 'Curiosity', max: 3, cost: l => l + 1, desc: l => '+' + (5 * l) + '% unlock speed', currency: 'pp' },
+  { id: 'd2', branch: 'discovery', name: 'Hidden Knowledge', max: 3, cost: l => (l + 1) * 2, desc: l => '+' + (2 * l) + '% perk point gain', currency: 'pp' },
+  { id: 'd3', branch: 'discovery', name: 'Secret Seeker', max: 3, cost: l => (l + 1) * 3, desc: l => 'Reveal ' + l + ' hidden hints', currency: 'pp' },
+  { id: 'd4', branch: 'discovery', name: 'Rare Encounter', max: 3, cost: l => (l + 1) * 4, desc: l => '+' + (3 * l) + '% rare event chance', currency: 'pp' },
+  { id: 'd5', branch: 'discovery', name: 'Variant Unlock', max: 1, cost: l => 10, desc: l => 'Unlock secret card variants', currency: 'pp' },
+  { id: 'd6', branch: 'discovery', name: "Collector's Eye", max: 3, cost: l => (l + 1) * 5, desc: l => '+' + (5 * l) + '% achievement reward', currency: 'pp' },
+  { id: 'd7', branch: 'discovery', name: 'Explorer', max: 3, cost: l => (l + 1) * 4, desc: l => '+' + (2 * l) + '% theme unlock speed', currency: 'pp' },
+  { id: 'd8', branch: 'discovery', name: 'Insight', max: 3, cost: l => (l + 1) * 6, desc: l => 'See next tier requirement', currency: 'pp' },
+  { id: 'd9', branch: 'discovery', name: 'Revelation', max: 3, cost: l => (l + 1) * 7, desc: l => '+' + l + ' max tier bonus', currency: 'pp' },
+  { id: 'd10', branch: 'discovery', name: 'Omniscience', max: 3, cost: l => (l + 1) * 10, desc: l => '+' + (5 * l) + '% all discovery perks', currency: 'pp' },
+  { id: 'p1', branch: 'prestige', name: 'Essence Mastery', max: 5, cost: l => (l + 1) * 5, desc: l => '+' + (20 * l) + '% essence gain', currency: 'essence' },
+  { id: 'p2', branch: 'prestige', name: "Destiny's Call", max: 3, cost: l => (l + 1) * 10, desc: l => 'Keep +' + (10 * l) + '% coins on reset', currency: 'essence' },
+  { id: 'p3', branch: 'prestige', name: 'Eternal Wealth', max: 5, cost: l => (l + 1) * 8, desc: l => '+' + (5 * l) + '% permanent coin mult', currency: 'essence' },
+  { id: 'p4', branch: 'prestige', name: 'Soul Binding', max: 3, cost: l => (l + 1) * 15, desc: l => 'Keep +' + l + ' tier unlocks on reset', currency: 'essence' },
+  { id: 'p5', branch: 'prestige', name: 'Rebirth', max: 3, cost: l => (l + 1) * 20, desc: l => '+' + (2 * l) + '% auto reveal per ascension', currency: 'essence' },
+  { id: 'p6', branch: 'prestige', name: 'Transcendence', max: 3, cost: l => (l + 1) * 25, desc: l => '+' + (5 * l) + '% perk point gain permanent', currency: 'essence' },
+  { id: 'p7', branch: 'prestige', name: 'Infinity', max: 5, cost: l => (l + 1) * 12, desc: l => '+' + (10 * l) + '% crit damage permanent', currency: 'essence' },
+  { id: 'p8', branch: 'prestige', name: 'Legacy', max: 3, cost: l => (l + 1) * 30, desc: l => '+' + l + ' free perk level on reset', currency: 'essence' },
+  { id: 'p9', branch: 'prestige', name: 'Ascension Speed', max: 3, cost: l => (l + 1) * 18, desc: l => '+' + (5 * l) + '% faster progression', currency: 'essence' },
+  { id: 'p10', branch: 'prestige', name: 'Cosmic Power', max: 3, cost: l => (l + 1) * 50, desc: l => '+' + (2 * l) + ' max card tier', currency: 'essence' }
+];
+const EVENTS = [
+  { id: 'golden_rain', name: 'Golden Rain', desc: '2x Coins for 60s', duration: 60, color: '#ffd700' },
+  { id: 'fortune_surge', name: 'Fortune Surge', desc: '2x Gems for 60s', duration: 60, color: '#00ff88' },
+  { id: 'treasure_storm', name: 'Treasure Storm', desc: '+20% Rare Finds for 45s', duration: 45, color: '#00bfff' },
+  { id: 'relic_discovery', name: 'Relic Discovery', desc: 'Guaranteed Relics for 30s', duration: 30, color: '#cd7f32' },
+  { id: 'celestial_blessing', name: 'Celestial Blessing', desc: 'All Rewards +50% for 90s', duration: 90, color: '#fffacd' }
+];
+const THEMES = [
+  { id: 'classic', name: 'Classic Forge', unlock: 'default' },
+  { id: 'golden', name: 'Golden Forge', unlock: { totalCoinsEarned: 10000 } },
+  { id: 'cyber', name: 'Cyber Forge', unlock: { totalGemsEarned: 50 } },
+  { id: 'void', name: 'Void Forge', unlock: { ascensions: 1 } },
+  { id: 'cosmic', name: 'Cosmic Forge', unlock: { highestTierEver: 6 } },
+  { id: 'celestial', name: 'Celestial Forge', unlock: { ascensions: 5 } }
+];
+function genAchievements() {
+  const list = [];
+  let id = 0;
+  [1, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000].forEach((t, i) => {
+    list.push({ id: 'a' + (id++), name: ['First Reveal', 'Dedicated', 'Apprentice', 'Adept', 'Expert', 'Master', 'Grandmaster', 'Legend', 'Mythic', 'Infinite'][i], type: 'progress', target: t, rewardPP: 1, rewardCoins: t * 2 });
+  });
+  let w = 100;
+  const wNames = ['First Coin', 'Hundredaire', 'Thousandaire', 'Wealthy', 'Prosperous', 'Affluent', 'Rich', 'Millionaire', 'Billionaire', 'Tycoon', 'Magnate', 'Trillionaire', 'Quadrillionaire', 'Quintillionaire', 'Omnillionaire'];
+  for (let i = 0; i < 15; i++) {
+    list.push({ id: 'a' + (id++), name: wNames[i], type: 'wealth', target: w, rewardPP: 1, rewardGems: Math.floor(w / 1000) + 1 });
+    w = (i === 0) ? 1000 : w * 10;
+  }
+  [1, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000].forEach((t, i) => {
+    list.push({ id: 'a' + (id++), name: ['Lucky Break', 'Fortune Smiles', 'Blessed', 'Lucky Star', 'Favored', 'Divine Luck', 'Crit Master', 'Luck Incarnate', 'Fortune God', 'Probability Zero'][i], type: 'luck', target: t, rewardPP: 1, rewardDust: Math.floor(t / 10) + 1 });
+  });
+  [1, 2, 5, 10, 25, 50, 100].forEach((t, i) => {
+    list.push({ id: 'a' + (id++), name: ['First Step', 'Reborn', 'Transcended', 'Ascended', 'Eternal', 'Infinite Loop', 'Destiny Itself'][i], type: 'prestige', target: t, rewardPP: 5, rewardEssence: t * 10 });
+  });
+  TIERS.slice(1).forEach((t, i) => {
+    list.push({ id: 'a' + (id++), name: t.name + ' Collector', type: 'collection', target: i + 1, rewardPP: 2, rewardRelics: i + 1 });
+  });
+  const secrets = [
+    { id: 'a' + (id++), name: 'Title Clicker', type: 'secrets', check: g => g.titleClicks >= 10, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Fashionista', type: 'secrets', check: g => g.themeChanges >= 5, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Minimalist', type: 'secrets', check: g => g.minimalistAscend, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Settings Explorer', type: 'secrets', check: g => g.settingsOpens >= 10, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Pure Manual', type: 'secrets', check: g => g.manualReveals >= 100, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'First Try', type: 'secrets', check: g => g.totalCrits > 0 && g.totalReveals === 1, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Night Owl', type: 'secrets', check: g => g.isNightOwl, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Speed Demon', type: 'secrets', check: g => g.speedDemon, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Hoarder', type: 'secrets', check: g => g.coins >= 1000000 && g.ascensions === 0, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Early Bird', type: 'secrets', check: g => g.earlyBird, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Patient Zero', type: 'secrets', check: g => g.patientZero, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Perfectionist', type: 'secrets', check: g => Object.values(g.perks).some(l => l >= 5), rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Jack of All', type: 'secrets', check: g => ['luck','speed','wealth','discovery','prestige'].every(b => Object.keys(g.perks).some(k => PERKS.find(p=>p.id===k).branch===b)), rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Treasure Finder', type: 'secrets', check: g => g.totalRelics > 0, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Dust Bunny', type: 'secrets', check: g => g.totalDust > 0, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Artifact Hunter', type: 'secrets', check: g => g.totalArtifacts > 0, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Gem Collector', type: 'secrets', check: g => g.totalGemsEarned > 0, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Eventful', type: 'secrets', check: g => g.totalEventsSeen > 0, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'All Seeing', type: 'secrets', check: g => Object.keys(g.eventsSeen).length >= 5, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'No Luck', type: 'secrets', check: g => g.totalReveals >= 100 && g.totalCrits === 0, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'High Roller', type: 'secrets', check: g => g.highTierReveals >= 1000, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Completionist', type: 'secrets', check: g => g.highestTierEver >= 8, rewardPP: 5 },
+    { id: 'a' + (id++), name: 'Perk Master', type: 'secrets', check: g => Object.keys(g.perks).length >= 25, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'The Answer', type: 'secrets', check: g => g.totalReveals === 42, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Lucky Seven', type: 'secrets', check: g => g.coins === 7777777, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Combo Breaker', type: 'secrets', check: g => g.maxCombo >= 10, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Ascensionist', type: 'secrets', check: g => g.ascensions >= 10, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Time Lord', type: 'secrets', check: g => g.playTime >= 86400, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Clicker Hero', type: 'secrets', check: g => g.manualReveals >= 10000, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Auto Pilot', type: 'secrets', check: g => g.autoReveals >= 10000, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Dust to Dust', type: 'secrets', check: g => g.totalDust >= 1000, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Relic Hunter', type: 'secrets', check: g => g.totalRelics >= 100, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Artifact Lord', type: 'secrets', check: g => g.totalArtifacts >= 50, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Gem Hoarder', type: 'secrets', check: g => g.totalGemsEarned >= 1000, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Coin Wall', type: 'secrets', check: g => g.coins >= 1e15, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Prestigious', type: 'secrets', check: g => g.essence >= 1000, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Theme Changer', type: 'secrets', check: g => Object.keys(g.unlockedThemes).length >= 3, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Music Lover', type: 'secrets', check: g => g.settings.music, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Silent Type', type: 'secrets', check: g => !g.settings.sound, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Exporter', type: 'secrets', check: g => g.hasExported, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Importer', type: 'secrets', check: g => g.hasImported, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Resetter', type: 'secrets', check: g => g.hasReset, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Forty Two', type: 'secrets', check: g => g.coins === 42, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'One Hundred', type: 'secrets', check: g => g.totalReveals >= 100, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Double Zero', type: 'secrets', check: g => g.totalReveals >= 100 && g.totalCrits >= 100, rewardPP: 2 },
+    { id: 'a' + (id++), name: 'Maxed Out', type: 'secrets', check: g => Object.values(g.perks).some(l => l >= 10), rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Branch Master', type: 'secrets', check: g => ['luck','speed','wealth','discovery'].every(b => { const ps = PERKS.filter(p=>p.branch===b); return ps.every(p => (g.perks[p.id]||0) >= p.max); }), rewardPP: 5 },
+    { id: 'a' + (id++), name: 'Destiny Chaser', type: 'secrets', check: g => g.ascensions >= 25, rewardPP: 5 },
+    { id: 'a' + (id++), name: 'Eternal One', type: 'secrets', check: g => g.playTime >= 604800, rewardPP: 5 },
+    { id: 'a' + (id++), name: 'The Forgotten', type: 'secrets', check: g => g.totalReveals === 0 && g.playTime > 3600, rewardPP: 1 },
+    { id: 'a' + (id++), name: 'Speedrun', type: 'secrets', check: g => g.highestTier >= 3 && g.playTime < 300, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Idle Master', type: 'secrets', check: g => g.autoReveals >= 100000, rewardPP: 3 },
+    { id: 'a' + (id++), name: 'Critical Mass', type: 'secrets', check: g => g.totalCrits >= 10000, rewardPP: 3 }
+  ];
+  list.push(...secrets);
+  return list;
+}
+const ACHIEVEMENTS = genAchievements();
+
+/* ================= STATE ================= */
+function defaultState() {
+  return {
+    coins: 0, gems: 0, dust: 0, relics: 0, artifacts: 0, essence: 0, perkPoints: 0,
+    totalCoinsEarned: 0, totalGemsEarned: 0, totalDust: 0, totalRelics: 0, totalArtifacts: 0,
+    totalReveals: 0, totalCrits: 0, manualReveals: 0, autoReveals: 0, highTierReveals: 0,
+    ascensions: 0, playTime: 0, highestTier: 0, highestTierEver: 0, currentTier: 0,
+    unlockedTiers: [true, false, false, false, false, false, false, false, false],
+    perks: {}, achievements: {}, unlockedThemes: { classic: true },
+    settings: { music: true, sound: true, volume: 0.5, theme: 'classic' },
+    eventsSeen: {}, totalEventsSeen: 0,
+    autoReveal: false, autoRevealTimer: 0,
+    eventRollTimer: 60, activeEvent: null, eventTimer: 0,
+    combo: 0, comboTimer: 0, maxCombo: 0, lastRevealTime: 0,
+    titleClicks: 0, themeChanges: 0, settingsOpens: 0, minimalistAscend: false,
+    speedDemon: false, patientZero: false, earlyBird: false, hasExported: false, hasImported: false, hasReset: false,
+    isNightOwl: false, idleTime: 0, lastTick: Date.now(), startTime: Date.now(), saveTimer: 0
+  };
+}
+let game = defaultState();
+let radio = null;
+let particles = null;
+let toastTimer = null;
+let achTimer = null;
+
+/* ================= AUDIO ================= */
+class ForgeRadio {
+  constructor() {
+    this.ctx = null; this.master = null; this.stage = 0; this.playing = false;
+  }
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.master = this.ctx.createGain();
+      this.master.connect(this.ctx.destination);
+      this.updateVol();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  updateVol() {
+    if (!this.master) return;
+    const v = game.settings.music ? game.settings.volume : 0;
+    this.master.gain.setTargetAtTime(v * 0.15, this.ctx.currentTime, 0.1);
+  }
+  update(highestTier) {
+    if (!game.settings.music) { this.playing = false; return; }
+    if (!this.playing) { this.playing = true; this.schedule(); }
+    this.stage = highestTier < 2 ? 0 : highestTier < 4 ? 1 : highestTier < 6 ? 2 : 3;
+  }
+  schedule() {
+    if (!this.playing || !this.ctx) return;
+    const tempos = [60, 90, 120, 150];
+    const tempo = tempos[this.stage];
+    const beat = 60 / tempo;
+    const now = this.ctx.currentTime;
+    const scales = [
+      [261.63, 293.66, 329.63, 392.00, 440.00],
+      [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 523.25],
+      [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33],
+      [261.63, 311.13, 392.00, 466.16, 523.25, 622.25, 783.99, 932.33]
+    ];
+    const scale = scales[this.stage];
+    const type = ['sine', 'triangle', 'square', 'sawtooth'][this.stage];
+    const note = scale[Math.floor(Math.random() * scale.length)];
+    this.playNote(note, type, beat * 0.8, now);
+    if (this.stage >= 1) this.playNote(note / 2, 'triangle', beat * 0.8, now);
+    if (this.stage >= 2) this.playNote(note * 1.5, 'square', beat * 0.5, now + beat * 0.5);
+    if (this.stage >= 3 && Math.random() > 0.5) this.playNote(scale[scale.length - 1] * (1 + Math.random() * 0.5), 'sine', beat * 0.3, now + beat * 0.25);
+    setTimeout(() => this.schedule(), beat * 1000);
+  }
+  playNote(freq, type, dur, t) {
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.1, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur);
+  }
+}
+
+/* ================= PARTICLES ================= */
+class ParticleSystem {
+  constructor() {
+    this.c = document.getElementById('particles');
+    this.x = this.c.getContext('2d');
+    this.p = [];
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.loop();
+  }
+  resize() { this.c.width = window.innerWidth; this.c.height = window.innerHeight; }
+  spawn(color, count, cx, cy) {
+    for (let i = 0; i < count; i++) {
+      this.p.push({
+        x: cx != null ? cx : Math.random() * this.c.width,
+        y: cy != null ? cy : Math.random() * this.c.height,
+        vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12 - 5,
+        life: 1, decay: 0.01 + Math.random() * 0.03,
+        color: color, size: 2 + Math.random() * 5
+      });
+    }
+  }
+  loop() {
+    this.x.clearRect(0, 0, this.c.width, this.c.height);
+    for (let i = this.p.length - 1; i >= 0; i--) {
+      const p = this.p[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25;
+      p.life -= p.decay;
+      if (p.life <= 0) { this.p.splice(i, 1); continue; }
+      this.x.globalAlpha = p.life;
+      this.x.fillStyle = p.color;
+      this.x.beginPath(); this.x.arc(p.x, p.y, p.size, 0, Math.PI * 2); this.x.fill();
+    }
+    this.x.globalAlpha = 1;
+    requestAnimationFrame(() => this.loop());
+  }
+}
+
+/* ================= UTILS ================= */
+function formatNum(n) {
+  if (n < 1000) return Math.floor(n).toString();
+  const s = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc', 'UDc', 'DDc', 'TDc', 'QaDc', 'QiDc'];
+  const e = Math.floor(Math.log10(n) / 3);
+  const su = s[e] || 'e' + (e * 3);
+  return (n / Math.pow(1000, e)).toFixed(2) + su;
+}
+function formatTime(s) {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+  return h + ':' + m.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0');
+}
+function getPerkLevel(id) { return game.perks[id] || 0; }
+function getCoinMult() {
+  let m = 1;
+  m += getPerkLevel('w1') * 0.1;
+  m += getPerkLevel('w5') * 0.05;
+  m += getPerkLevel('p3') * 0.05;
+  m += getPerkLevel('w9') * 0.5;
+  m += game.artifacts * 0.01;
+  if (game.activeEvent === 'golden_rain') m *= 2;
+  if (game.activeEvent === 'celestial_blessing') m *= 1.5;
+  return m;
+}
+function getCritChance() { return 0.05 + getPerkLevel('l2') * 0.05; }
+function getCritMult() { return 10 + getPerkLevel('l10') * 1 + getPerkLevel('p7') * 1; }
+function getAutoInterval() {
+  let base = 2.0;
+  base -= getPerkLevel('s1') * 0.2;
+  base -= getPerkLevel('s10') * 0.05;
+  base *= (1 - getPerkLevel('s2') * 0.05);
+  base *= (1 - getPerkLevel('p5') * 0.02 * game.ascensions);
+  return Math.max(0.1, base);
+}
+function getPassiveIncome() {
+  let inc = getPerkLevel('w7') * 0.5;
+  inc *= (1 + getPerkLevel('w5') * 0.05);
+  inc *= (1 + getPerkLevel('p3') * 0.05);
+  inc *= (1 + getPerkLevel('s4') * 0.02);
+  if (game.activeEvent === 'celestial_blessing') inc *= 1.5;
+  return inc;
+}
+function calcEssence() {
+  let base = Math.floor(Math.pow(game.coins, 0.25));
+  base += game.highestTier * 10;
+  base *= (1 + getPerkLevel('p1') * 0.2);
+  base *= (1 + getPerkLevel('w10') * 0.02);
+  base *= (1 + getPerkLevel('p9') * 0.05);
+  return Math.max(0, base);
+}
+
+/* ================= CORE ================= */
+function addResource(type, amount) {
+  if (amount <= 0) return;
+  game[type] += amount;
+  if (type === 'coins') game.totalCoinsEarned += amount;
+  if (type === 'gems') game.totalGemsEarned += amount;
+  if (type === 'dust') game.totalDust += amount;
+  if (type === 'relics') game.totalRelics += amount;
+  if (type === 'artifacts') game.totalArtifacts += amount;
+}
+
+function revealCard(manual = true) {
+  if (!game.unlockedTiers[game.currentTier]) return;
+  const tier = TIERS[game.currentTier];
+  const now = Date.now();
+  if (manual) {
+    game.manualReveals++;
+    if (now - game.lastRevealTime < 2000) {
+      game.combo = Math.min(game.combo + 1, 10);
+      if (game.combo >= 10 && !game.speedDemon) game.speedDemon = true;
+    } else {
+      game.combo = 1;
+    }
+    game.comboTimer = 2.0 + getPerkLevel('s6') * 0.04;
+    if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+  } else {
+    game.autoReveals++;
+  }
+  game.lastRevealTime = now;
+  let coins = tier.baseCoins * (0.8 + Math.random() * 0.4);
+  coins *= getCoinMult();
+  coins *= (1 + (game.combo - 1) * 0.05);
+  let isCrit = Math.random() < getCritChance();
+  if (isCrit) {
+    coins *= getCritMult();
+    game.totalCrits++;
+    particles.spawn('#ffd700', 40);
+    document.body.classList.add('shake');
+    setTimeout(() => document.body.classList.remove('shake'), 500);
+  }
+  coins = Math.floor(coins);
+  addResource('coins', coins);
+  let gChance = tier.gemChance + getPerkLevel('l3') * 0.02;
+  let dChance = tier.dustChance + getPerkLevel('l4') * 0.01;
+  let rChance = tier.relicChance + getPerkLevel('l5') * 0.01;
+  let aChance = tier.artifactChance + getPerkLevel('l6') * 0.005;
+  if (game.activeEvent === 'treasure_storm') { gChance *= 1.2; dChance *= 1.2; rChance *= 1.2; aChance *= 1.2; }
+  if (game.activeEvent === 'celestial_blessing') { gChance *= 1.5; dChance *= 1.5; rChance *= 1.5; aChance *= 1.5; }
+  if (game.activeEvent === 'relic_discovery') rChance = 1;
+  if (Math.random() < gChance) addResource('gems', Math.floor(Math.random() * tier.maxGems + 1 + getPerkLevel('w2') * 2));
+  if (Math.random() < dChance) addResource('dust', Math.floor(Math.random() * (tier.maxDust || 1) + 1 + getPerkLevel('w3')));
+  if (Math.random() < rChance) addResource('relics', 1 + (getPerkLevel('w4') > 0 ? 1 : 0));
+  if (Math.random() < aChance) addResource('artifacts', 1);
+  if (game.currentTier >= 5) game.highTierReveals++;
+  game.totalReveals++;
+  const cardEl = document.getElementById('active-card');
+  const rect = cardEl.getBoundingClientRect();
+  const fx = rect.left + rect.width / 2 + (Math.random() - 0.5) * 60;
+  const fy = rect.top + rect.height / 2;
+  const ft = document.createElement('div');
+  ft.className = 'floating-text';
+  ft.textContent = (isCrit ? 'CRIT! ' : '+') + formatNum(coins);
+  ft.style.left = fx + 'px';
+  ft.style.top = fy + 'px';
+  ft.style.color = isCrit ? '#ff4444' : '#ffd700';
+  document.body.appendChild(ft);
+  setTimeout(() => ft.remove(), 1000);
+  cardEl.classList.remove('revealing', 'crit');
+  void cardEl.offsetWidth;
+  cardEl.classList.add('revealing');
+  if (isCrit) cardEl.classList.add('crit');
+  checkUnlocks();
+  checkAchievements();
+  checkThemeUnlocks();
+  renderTop();
+  renderForge();
+}
+
+function checkUnlocks() {
+  for (let i = 0; i < TIERS.length; i++) {
+    if (!game.unlockedTiers[i] && game.totalReveals >= TIER_REQS[i]) {
+      game.unlockedTiers[i] = true;
+      game.highestTier = Math.max(game.highestTier, i);
+      game.highestTierEver = Math.max(game.highestTierEver, i);
+      showToast('Unlocked: ' + TIERS[i].name + '!');
+      particles.spawn('#00ff88', 60);
+    }
+  }
+}
+
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(ach => {
+    if (game.achievements[ach.id]) return;
+    let met = false;
+    switch (ach.type) {
+      case 'progress': met = game.totalReveals >= ach.target; break;
+      case 'wealth': met = game.totalCoinsEarned >= ach.target; break;
+      case 'luck': met = game.totalCrits >= ach.target; break;
+      case 'prestige': met = game.ascensions >= ach.target; break;
+      case 'collection': met = game.highestTierEver >= ach.target; break;
+      case 'secrets': met = ach.check(game); break;
+    }
+    if (met) {
+      game.achievements[ach.id] = true;
+      if (ach.rewardCoins) addResource('coins', ach.rewardCoins);
+      if (ach.rewardGems) addResource('gems', ach.rewardGems);
+      if (ach.rewardDust) addResource('dust', ach.rewardDust);
+      if (ach.rewardRelics) addResource('relics', ach.rewardRelics);
+      if (ach.rewardEssence) game.essence += ach.rewardEssence;
+      if (ach.rewardPP) game.perkPoints += Math.floor(ach.rewardPP * (1 + getPerkLevel('d2') * 0.02 + getPerkLevel('p6') * 0.05 + getPerkLevel('d6') * 0.05));
+      showAch(ach.name);
+      renderTop();
+    }
+  });
+}
+
+function checkThemeUnlocks() {
+  THEMES.forEach(t => {
+    if (game.unlockedThemes[t.id]) return;
+    if (t.unlock === 'default') { game.unlockedThemes[t.id] = true; return; }
+    let met = true;
+    for (let [k, v] of Object.entries(t.unlock)) { if ((game[k] || 0) < v) met = false; }
+    if (met) {
+      game.unlockedThemes[t.id] = true;
+      showToast('Theme Unlocked: ' + t.name + '!');
+    }
+  });
+}
+
+function tryTriggerEvent() {
+  if (game.activeEvent) return;
+  let chance = 0.2 + getPerkLevel('s9') * 0.05;
+  if (Math.random() < chance) {
+    const evt = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+    game.activeEvent = evt.id;
+    let dur = evt.duration;
+    if (getPerkLevel('l7') > 0) dur *= (1 + getPerkLevel('l7') * 0.05);
+    game.eventTimer = dur;
+    if (!game.eventsSeen[evt.id]) game.eventsSeen[evt.id] = 0;
+    game.eventsSeen[evt.id]++;
+    game.totalEventsSeen++;
+    showToast('EVENT: ' + evt.name + '! ' + evt.desc);
+    particles.spawn(evt.color, 80);
+  }
+}
+
+function ascend() {
+  const gain = calcEssence();
+  if (gain <= 0) return;
+  if (game.coins < 100) game.minimalistAscend = true;
+  if (game.playTime < 300) game.earlyBird = true;
+  game.essence += gain;
+  game.ascensions++;
+  const keepCoins = getPerkLevel('p2') * 0.1;
+  const keepTiers = getPerkLevel('p4');
+  game.coins = Math.floor(game.coins * keepCoins);
+  game.gems = 0; game.dust = 0; game.relics = 0; game.artifacts = 0;
+  game.totalReveals = 0; game.combo = 0; game.comboTimer = 0;
+  game.currentTier = 0;
+  game.unlockedTiers = [true, false, false, false, false, false, false, false, false];
+  for (let i = 0; i < keepTiers && i < 9; i++) game.unlockedTiers[i] = true;
+  game.highestTier = Math.max(0, keepTiers - 1);
+  game.autoReveal = false;
+  game.activeEvent = null;
+  game.eventTimer = 0;
+  showToast('Destiny Ascension! +' + formatNum(gain) + ' Essence!');
+  particles.spawn('#ff00ff', 150);
+  saveGame();
+  renderAll();
+}
+
+/* ================= UI ================= */
+function switchScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('#sidebar button, #bottom-bar button').forEach(b => b.classList.remove('active'));
+  const nav = document.getElementById('nav-' + name);
+  const mob = document.getElementById('mob-' + name);
+  if (nav) nav.classList.add('active');
+  if (mob) mob.classList.add('active');
+  if (name === 'settings') game.settingsOpens++;
+  renderAll();
+}
+function renderAll() {
+  renderTop();
+  renderForge();
+  renderCards();
+  renderPerks();
+  renderDestiny();
+  renderStats();
+  renderSettings();
+}
+function renderTop() {
+  document.getElementById('res-coins').textContent = formatNum(game.coins);
+  document.getElementById('res-gems').textContent = formatNum(game.gems);
+  document.getElementById('res-dust').textContent = formatNum(game.dust);
+  document.getElementById('res-relics').textContent = formatNum(game.relics);
+  document.getElementById('res-artifacts').textContent = formatNum(game.artifacts);
+  document.getElementById('res-essence').textContent = formatNum(game.essence);
+  document.getElementById('res-pp').textContent = formatNum(game.perkPoints);
+}
+function renderForge() {
+  const tier = TIERS[game.currentTier];
+  const card = document.getElementById('active-card');
+  card.className = 'card-tier-' + game.currentTier;
+  if (game.unlockedTiers[game.currentTier]) {
+    document.getElementById('card-art').textContent = tier.art;
+    document.getElementById('card-name').textContent = tier.name;
+    document.getElementById('reveal-btn').disabled = false;
+  } else {
+    document.getElementById('card-art').textContent = '🔒';
+    document.getElementById('card-name').textContent = 'Locked';
+    document.getElementById('reveal-btn').disabled = true;
+  }
+  const autoBtn = document.getElementById('auto-btn');
+  autoBtn.textContent = 'Auto: ' + (game.autoReveal ? 'ON' : 'OFF');
+  autoBtn.classList.toggle('active', game.autoReveal);
+  const banner = document.getElementById('event-banner');
+  if (game.activeEvent) {
+    const evt = EVENTS.find(e => e.id === game.activeEvent);
+    banner.textContent = evt.name + ': ' + evt.desc + ' (' + Math.ceil(game.eventTimer) + 's)';
+    banner.classList.add('active');
+  } else {
+    banner.classList.remove('active');
+  }
+  let nextIdx = game.unlockedTiers.findIndex((u, i) => !u && i > game.currentTier);
+  if (nextIdx === -1) nextIdx = game.unlockedTiers.findIndex(u => !u);
+  const nextEl = document.getElementById('next-unlock');
+  const progEl = document.getElementById('progress-fill');
+  if (nextIdx !== -1) {
+    const req = TIER_REQS[nextIdx];
+    const prog = Math.min(1, game.totalReveals / req);
+    nextEl.textContent = 'Next: ' + TIERS[nextIdx].name + ' (' + formatNum(game.totalReveals) + '/' + formatNum(req) + ')';
+    progEl.style.width = (prog * 100) + '%';
+  } else {
+    nextEl.textContent = 'All tiers unlocked!';
+    progEl.style.width = '100%';
+  }
+  const comboFill = document.getElementById('combo-fill');
+  const comboText = document.getElementById('combo-text');
+  if (game.combo > 1) {
+    comboFill.style.width = (game.combo / 10 * 100) + '%';
+    comboText.textContent = 'Combo x' + game.combo + ' (+' + Math.round((game.combo - 1) * 5) + '%)';
+  } else {
+    comboFill.style.width = '0%';
+    comboText.textContent = '';
+  }
+}
+function renderCards() {
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = '';
+  TIERS.forEach((t, i) => {
+    const div = document.createElement('div');
+    div.className = 'card-select card-tier-' + i + (game.unlockedTiers[i] ? '' : ' locked') + (game.currentTier === i ? ' selected' : '');
+    div.innerHTML = '<div class="tier-art">' + (game.unlockedTiers[i] ? t.art : '🔒') + '</div><div class="tier-name">' + t.name + '</div>' +
+      (game.unlockedTiers[i] ? '' : '<div class="tier-req">Unlock: ' + formatNum(TIER_REQS[i]) + ' reveals</div>');
+    div.onclick = () => { if (game.unlockedTiers[i]) { game.currentTier = i; renderCards(); renderForge(); showToast('Selected: ' + t.name); } };
+    grid.appendChild(div);
+  });
+}
+function renderPerks() {
+  const tree = document.getElementById('perk-tree');
+  tree.innerHTML = '';
+  const branches = { luck: 'Luck', speed: 'Speed', wealth: 'Wealth', discovery: 'Discovery', prestige: 'Prestige' };
+  for (let [bid, bname] of Object.entries(branches)) {
+    const col = document.createElement('div');
+    col.className = 'perk-branch';
+    col.innerHTML = '<h3>' + bname + '</h3>';
+    const list = document.createElement('div');
+    PERKS.filter(p => p.branch === bid).forEach(p => {
+      const lvl = getPerkLevel(p.id);
+      const maxed = lvl >= p.max;
+      const cost = p.cost(lvl);
+      const canAfford = maxed ? false : (game[p.currency] >= cost);
+      const div = document.createElement('div');
+      div.className = 'perk-item' + (maxed ? ' maxed' : '');
+      div.innerHTML = '<div class="perk-name"><span>' + p.name + '</span><span>' + lvl + '/' + p.max + '</span></div>' +
+        '<div class="perk-desc">' + p.desc(lvl) + '</div>' +
+        '<div class="perk-cost">' + (maxed ? '<span style="color:var(--success)">MAXED</span>' : '<span class="perk-' + (p.currency === 'pp' ? 'pp' : 'essence') + '">' + cost + ' ' + (p.currency === 'pp' ? 'PP' : 'Essence') + '</span>') +
+        (maxed ? '' : '<button ' + (canAfford ? '' : 'disabled') + ' onclick="buyPerk('' + p.id + '')">Upgrade</button>') + '</div>';
+      list.appendChild(div);
+    });
+    col.appendChild(list);
+    tree.appendChild(col);
+  }
+}
+function renderDestiny() {
+  document.getElementById('dest-tier').textContent = TIERS[game.highestTier]?.name || 'Paper';
+  document.getElementById('dest-reveals').textContent = formatNum(game.totalReveals);
+  document.getElementById('dest-coins').textContent = formatNum(game.totalCoinsEarned);
+  document.getElementById('dest-essence').textContent = formatNum(calcEssence());
+  document.getElementById('ascend-btn').disabled = calcEssence() <= 0;
+}
+function renderStats() {
+  const stats = [
+    ['Total Reveals', formatNum(game.totalReveals)], ['Manual Reveals', formatNum(game.manualReveals)], ['Auto Reveals', formatNum(game.autoReveals)],
+    ['Coins Earned', formatNum(game.totalCoinsEarned)], ['Gems Earned', formatNum(game.totalGemsEarned)], ['Dust Found', formatNum(game.totalDust)],
+    ['Relics Found', formatNum(game.totalRelics)], ['Artifacts Found', formatNum(game.totalArtifacts)], ['Critical Hits', formatNum(game.totalCrits)],
+    ['Max Combo', game.maxCombo], ['Ascensions', formatNum(game.ascensions)], ['Play Time', formatTime(game.playTime)],
+    ['Highest Tier', TIERS[game.highestTierEver]?.name || 'None'], ['Perks Unlocked', Object.keys(game.perks).length], ['Achievements', Object.keys(game.achievements).length + '/' + ACHIEVEMENTS.length],
+    ['Events Seen', game.totalEventsSeen], ['Essence', formatNum(game.essence)], ['Perk Points', formatNum(game.perkPoints)], ['Current Coins', formatNum(game.coins)]
+  ];
+  const grid = document.getElementById('stats-grid');
+  grid.innerHTML = '';
+  stats.forEach(([label, val]) => {
+    const div = document.createElement('div');
+    div.className = 'stat-box';
+    div.innerHTML = '<div class="stat-label">' + label + '</div><div class="stat-value">' + val + '</div>';
+    grid.appendChild(div);
+  });
+}
+function renderSettings() {
+  document.getElementById('set-music').checked = game.settings.music;
+  document.getElementById('set-sound').checked = game.settings.sound;
+  document.getElementById('set-vol').value = game.settings.volume;
+  const sel = document.getElementById('set-theme');
+  sel.innerHTML = '';
+  THEMES.forEach(t => {
+    if (!game.unlockedThemes[t.id]) return;
+    const opt = document.createElement('option');
+    opt.value = t.id; opt.textContent = t.name;
+    if (game.settings.theme === t.id) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+/* ================= ACTIONS ================= */
+function buyPerk(id) {
+  const p = PERKS.find(x => x.id === id);
+  const lvl = getPerkLevel(id);
+  if (lvl >= p.max) return;
+  const cost = p.cost(lvl);
+  if (game[p.currency] < cost) return;
+  game[p.currency] -= cost;
+  game.perks[id] = lvl + 1;
+  showToast('Upgraded: ' + p.name + ' Lv.' + (lvl + 1));
+  saveGame();
+  renderPerks();
+  renderTop();
+}
+function toggleAuto() {
+  game.autoReveal = !game.autoReveal;
+  if (game.autoReveal) game.autoRevealTimer = getAutoInterval();
+  renderForge();
+}
+function titleClick() {
+  game.titleClicks++;
+  if (game.titleClicks === 10) showToast('You found a secret...');
+}
+function updateSettings() {
+  game.settings.music = document.getElementById('set-music').checked;
+  game.settings.sound = document.getElementById('set-sound').checked;
+  game.settings.volume = parseFloat(document.getElementById('set-vol').value);
+  game.settings.theme = document.getElementById('set-theme').value;
+  document.body.className = 'theme-' + game.settings.theme;
+  game.themeChanges++;
+  if (radio) { radio.updateVol(); radio.update(game.highestTier); }
+  saveGame();
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+function showAch(name) {
+  const p = document.getElementById('ach-popup');
+  document.getElementById('ach-text').textContent = name;
+  p.classList.add('show');
+  clearTimeout(achTimer);
+  achTimer = setTimeout(() => p.classList.remove('show'), 3000);
+}
+
+/* ================= SAVE / LOAD ================= */
+function saveGame() {
+  try {
+    localStorage.setItem('fortunaForge_v1', JSON.stringify(game));
+  } catch (e) { console.warn('Save failed', e); }
+}
+function loadGame() {
+  try {
+    const raw = localStorage.getItem('fortunaForge_v1');
+    if (raw) {
+      const loaded = JSON.parse(raw);
+      game = Object.assign(defaultState(), loaded);
+      if (!game.settings) game.settings = defaultState().settings;
+      if (!game.eventsSeen) game.eventsSeen = {};
+      if (!game.highestTierEver) game.highestTierEver = game.highestTier || 0;
+    }
+  } catch (e) { console.warn('Load failed', e); }
+  document.body.className = 'theme-' + game.settings.theme;
+}
+function exportSave() {
+  const data = btoa(JSON.stringify(game));
+  document.getElementById('export-area').value = data;
+  game.hasExported = true;
+  showToast('Save exported!');
+}
+function copySave() {
+  const area = document.getElementById('export-area');
+  area.select();
+  document.execCommand('copy');
+  showToast('Copied to clipboard!');
+}
+function importSave() {
+  try {
+    const data = JSON.parse(atob(document.getElementById('import-area').value));
+    game = Object.assign(defaultState(), data);
+    game.hasImported = true;
+    document.body.className = 'theme-' + game.settings.theme;
+    saveGame();
+    renderAll();
+    showToast('Save imported!');
+  } catch (e) {
+    showToast('Invalid save data!');
+  }
+}
+function resetSave() {
+  if (!confirm('Are you sure? This will delete ALL progress forever!')) return;
+  game = defaultState();
+  game.hasReset = true;
+  saveGame();
+  renderAll();
+  showToast('Progress reset.');
+}
+
+/* ================= LOOP ================= */
+function gameLoop() {
+  const now = Date.now();
+  const dt = (now - game.lastTick) / 1000;
+  game.lastTick = now;
+  game.playTime += dt;
+  const hr = new Date().getHours();
+  if (hr >= 2 && hr < 5) game.isNightOwl = true;
+  if (game.lastRevealTime > 0 && now - game.lastRevealTime > 60000) {
+    game.idleTime += dt;
+    if (game.idleTime >= 60) game.patientZero = true;
+  }
+  const inc = getPassiveIncome();
+  if (inc > 0) addResource('coins', inc * dt);
+  if (game.autoReveal && game.unlockedTiers[game.currentTier]) {
+    game.autoRevealTimer -= dt;
+    if (game.autoRevealTimer <= 0) {
+      revealCard(false);
+      game.autoRevealTimer = getAutoInterval();
+    }
+  }
+  if (game.activeEvent) {
+    game.eventTimer -= dt;
+    if (game.eventTimer <= 0) {
+      game.activeEvent = null;
+      showToast('Event ended.');
+    }
+  }
+  game.eventRollTimer -= dt;
+  if (game.eventRollTimer <= 0) {
+    game.eventRollTimer = 60;
+    tryTriggerEvent();
+  }
+  if (game.combo > 0) {
+    game.comboTimer -= dt;
+    if (game.comboTimer <= 0) { game.combo = 0; game.comboTimer = 0; }
+  }
+  if (radio) radio.update(game.highestTier);
+  game.saveTimer += dt;
+  if (game.saveTimer >= 30) { saveGame(); game.saveTimer = 0; }
+  renderTop();
+  renderForge();
+  requestAnimationFrame(gameLoop);
+}
+
+/* ================= INIT ================= */
+function startGame() {
+  document.getElementById('start-overlay').style.display = 'none';
+  loadGame();
+  radio = new ForgeRadio();
+  radio.init();
+  radio.update(game.highestTier);
+  particles = new ParticleSystem();
+  renderAll();
+  requestAnimationFrame(gameLoop);
+}
+window.switchScreen = switchScreen;
+window.revealCard = revealCard;
+window.toggleAuto = toggleAuto;
+window.titleClick = titleClick;
+window.buyPerk = buyPerk;
+window.ascend = ascend;
+window.updateSettings = updateSettings;
+window.exportSave = exportSave;
+window.copySave = copySave;
+window.importSave = importSave;
+window.resetSave = resetSave;
+window.startGame = startGame;
+</script>
+</body>
+</html>
